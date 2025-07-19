@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>ホスト画面</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    button { margin: 5px; padding: 10px 15px; cursor: pointer; }
+    button:disabled { background-color: #ccc; cursor: not-allowed; }
+    #messageArea {
+      margin-top: 15px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+      min-height: 20px;
+    }
+    .loading-spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 10px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .role-settings {
+      margin-top: 20px;
+      border: 1px solid #eee;
+      padding: 15px;
+      background-color: #fdfdfd;
+    }
+    .role-settings h3 { margin-top: 0; }
+    .role-input-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .role-input-group label {
+      width: 80px;
+      margin-right: 10px;
+    }
+    .role-input-group input {
+      width: 50px;
+      text-align: center;
+    }
+    .role-total {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>ホスト画面</h1>
+
+  <div style="margin-bottom: 20px; border: 1px solid #ccc; padding: 10px;">
+    <h2>ホスト認証</h2>
+    <p id="hostLoginStatus">自動ログイン中...</p>
+    </div>
+
+  <div>
+    <input type="text" id="roomId" placeholder="ルームID" />
+    <input type="number" id="maxPlayers" placeholder="最大人数" min="3" value="5" />
+    <button id="createRoomBtn">ルーム作成</button>
+    <span id="createRoomLoading" class="loading-spinner" style="display: none;"></span>
+  </div>
+
+  <div class="role-settings" id="roleSettings" style="display: none;">
+    <h3>役職設定</h3>
+    <p>設定人数: <span id="currentPlayersCount">0</span> / <span id="maxPlayersDisplay">0</span></p>
+    <div class="role-input-group">
+      <label>人狼:</label><input type="number" id="role_人狼" value="1" min="0" max="10">
+    </div>
+    <div class="role-input-group">
+      <label>裏切り者:</label><input type="number" id="role_裏切り者" value="0" min="0" max="10">
+    </div>
+    <div class="role-input-group">
+      <label>村人:</label><input type="number" id="role_村人" value="2" min="0" max="10">
+    </div>
+    <div class="role-input-group">
+      <label>占い師:</label><input type="number" id="role_占い師" value="1" min="0" max="10">
+    </div>
+    <div class="role-input-group">
+      <label>霊媒師:</label><input type="number" id="role_霊媒師" value="0" min="0" max="10">
+    </div>
+    <div class="role-input-group">
+      <label>パン屋:</label><input type="number" id="role_パン屋" value="1" min="0" max="10">
+    </div>
+    <div class="role-input-group">
+      <label>騎士:</label><input type="number" id="role_騎士" value="0" min="0" max="10">
+    </div>
+    <div class="role-total">
+      合計役職数: <span id="totalRolesCount">0</span>
+    </div>
+    <button id="assignRolesBtn" disabled>役職を配る</button>
+    <span id="assignRolesLoading" class="loading-spinner" style="display: none;"></span>
+  </div>
+
+  <div style="margin-top: 20px;">
+    <button id="startDayBtn" disabled>昼フェーズ開始</button>
+    <span id="startDayLoading" class="loading-spinner" style="display: none;"></span>
+  </div>
+
+  <div style="margin-top: 20px;">
+    <button id="countVotesBtn" disabled>投票結果を集計</button>
+    <span id="countVotesLoading" class="loading-spinner" style="display: none;"></span>
+  </div>
+
+  <div style="margin-top: 20px;">
+    <button id="checkGameOverBtn" disabled>ゲーム終了を判定</button>
+    <span id="checkGameOverLoading" class="loading-spinner" style="display: none;"></span>
+  </div>
+
+  <div style="margin-top: 20px;">
+    <button id="resetGameBtn" disabled>ゲームをリセット</button>
+    <span id="resetGameLoading" class="loading-spinner" style="display: none;"></span>
+  </div>
+
+  <div id="messageArea"></div>
+
+  <script type="module" src="./host.js"></script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>プレイヤー画面</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    button { margin: 5px; padding: 10px 15px; cursor: pointer; }
+    button:disabled { background-color: #ccc; cursor: not-allowed; }
+    #messageArea {
+      margin-top: 15px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+      min-height: 20px;
+    }
+    .loading-spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 10px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    #nightAction, #dayAction {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #007bff;
+      background-color: #e6f3ff;
+      border-radius: 8px;
+    }
+    #resultContainer {
+      margin-top: 30px;
+      padding: 20px;
+      border: 2px solid #28a745;
+      background-color: #e6ffe6;
+      border-radius: 8px;
+      text-align: center;
+    }
+    #resultContainer h2 { color: #28a745; }
+    #resultContainer ul { list-style: none; padding: 0; }
+    #resultContainer li { margin-bottom: 5px; }
+
+    /* ★追加: 役職カード表示用のスタイル */
+    #roleCardArea {
+      margin-top: 20px;
+      text-align: center;
+      border: 1px solid #ccc;
+      padding: 15px;
+      border-radius: 8px;
+      background-color: #f0f0f0;
+    }
+    #roleCardImage {
+      max-width: 150px; /* カード画像の最大幅 */
+      height: auto;
+      border: 2px solid #333;
+      border-radius: 5px;
+      box-shadow: 3px 3px 8px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <h1>プレイヤー画面</h1>
+
+  <div>
+    <input type="text" id="roomId" placeholder="ルームID" />
+    <input type="text" id="playerName" placeholder="名前（ハンドルネーム）" />
+    <button id="joinBtn">ルームに参加</button>
+    <span id="joinLoading" class="loading-spinner" style="display: none;"></span>
+  </div>
+
+  <div id="messageArea"></div>
+
+  <div id="roleArea" style="display: none; margin-top: 20px; padding: 10px; border: 1px dashed #666; background-color: #fffacd;">
+    あなたの役職: <span id="currentRoleDisplay"></span>
+  </div>
+
+  <div id="roleCardArea" style="display: none;">
+      <img id="roleCardImage" src="" alt="役職カード" />
+  </div>
+  <div id="statusArea" style="margin-top: 10px; padding: 10px; border: 1px dashed #666; background-color: #f0f8ff; display: none;">
+    現在の状態: <span id="currentPlayerStatus"></span>
+  </div>
+
+  <div id="nightAction" style="display: none;">
+    <h3>夜のアクション</h3>
+    <p id="nightActionMessage"></p>
+    <select id="nightTarget"></select>
+    <button id="nightActionBtn"></button>
+    <span id="nightActionLoading" class="loading-spinner" style="display: none;"></span>
+  </div>
+
+  <div id="dayAction" style="display: none;">
+    <h3>投票フェーズ</h3>
+    <select id="voteTarget"></select>
+    <button id="voteBtn">投票する</button>
+    <span id="voteLoading" class="loading-spinner" style="display: none;"></span>
+  </div>
+
+  <div id="resultContainer" style="display: none;">
+    <h2 id="resultTitle"></h2>
+    <ul id="playerListResult"></ul>
+  </div>
+
+  <script type="module" src="./player.js"></script>
+</body>
+</html>

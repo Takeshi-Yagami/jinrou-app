@@ -1,128 +1,250 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>ホスト画面</title>
-  <style>
-    body { font-family: sans-serif; margin: 20px; }
-    button { margin: 5px; padding: 10px 15px; cursor: pointer; }
-    button:disabled { background-color: #ccc; cursor: not-allowed; }
-    #messageArea {
-      margin-top: 15px;
-      padding: 10px;
-      border: 1px solid #ddd;
-      background-color: #f9f9f9;
-      min-height: 20px;
-    }
-    .loading-spinner {
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #3498db;
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
-      animation: spin 1s linear infinite;
-      display: inline-block;
-      vertical-align: middle;
-      margin-left: 10px;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    .role-settings {
-      margin-top: 20px;
-      border: 1px solid #eee;
-      padding: 15px;
-      background-color: #fdfdfd;
-    }
-    .role-settings h3 { margin-top: 0; }
-    .role-input-group {
-      display: flex;
-      align-items: center;
-      margin-bottom: 5px;
-    }
-    .role-input-group label {
-      width: 80px;
-      margin-right: 10px;
-    }
-    .role-input-group input {
-      width: 50px;
-      text-align: center;
-    }
-    .role-total {
-      margin-top: 10px;
-      font-weight: bold;
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <title>ホスト画面</title>
+    <style>
+        body {
+            font-family: "Zen Old Mincho", serif;
+            font-weight: 400;
+            font-style: normal;
+            height: 100vh;
+
+            background-image: url('img/logo_pc.png'); /* ここに背景画像のURLを設定 */
+            background-size: cover; /* 画面いっぱいに表示 */
+            background-position: center; /* 画像を中央に配置 */
+
+            overflow: hidden; /* スクロールバーを非表示にする */
+
+            margin: 0;
+            padding: 0;
+        }
+        .content {
+            max-width: 1000px;
+            margin:0 auto;
+            display:  flex;
+            flex-direction: column;
+            height: 70%;
+            z-index: 1; /* 背景より手前に表示 */
+        }
+        h1{
+            color: #ffffff;
+        }
+        input{
+            font-family: "Zen Old Mincho", serif;
+            border: 1px solid #4c0000;
+            background-color: #130808;
+            color: #ffffff;
+        }
+        button {
+            font-family: "Zen Old Mincho", serif;
+            margin-top: 5px; 
+            margin-bottom: 5px; 
+            padding: 10px 15px; 
+            cursor: pointer;
+            border: 1px solid #d10000;
+            background-color: #5c0006;
+            color: #ffffff;
+        }
+        button:disabled {
+            font-family: "Zen Old Mincho", serif;
+            border: none;
+            background-color: #2f2020; cursor: not-allowed;
+            color: #534242;
+        }
+        .status{
+            padding: 10px;
+            border: 1px solid #4c0000;
+            background-color: #130808;
+            color: #ffffff;
+        }
+        .hosting{
+            margin-top: 0.6em;
+            margin-bottom: 0.6em;
+        }
+
+        #hostLoginStatus{
+            font-size: 0.7em;
+        }
+        #messageArea {
+            margin-top: 15px;
+            margin-bottom: 15px;
+            font-size: 0.7em;
+            padding: 10px;
+            border: 1px solid #4c0000;
+            background-color: #130808;
+            color: #ffffff;
+            min-height: 20px;
+        }
+        .loading-spinner {
+            border: 4px solid #4c0000;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+
+
+        .buildroombox{
+            display: flex;
+            flex-direction: row;
+            margin-top: 10px;
+        }
+        .BRBinnerbox{
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #roomId,#maxPlayers{
+            height: 30px;
+            width: 50%;
+        }
+        #createRoomBtn{
+            height: 34px;
+            padding: 0 20px 0 20px;
+            line-height: 34px;
+            margin-left: 10px;
+        }
+
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .role-settings {
+            margin-top: 20px;
+            border: 1px solid #4c0000;
+            padding: 15px;
+            background-color: #130808;
+            color: #ffffff;
+        }
+        .role-settings h3 { margin-top: 0; }
+        .role-input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .role-input-group label {
+            width: 80px;
+            margin-right: 10px;
+        }
+        .role-input-group input {
+            width: 50px;
+            text-align: center;
+        }
+        .role-total {
+            font-weight: bold;
+        }
+
+        @media screen and (max-width: 600px) {
+        body {
+            background-image: url('img/logo_sp.png'); /* ここに背景画像のURLを設定 */
+            background-size: cover; /* 画面いっぱいに表示 */
+        }
+        .buildroombox{
+            display: flex;
+            flex-direction: column;
+        }
+        .BRBinnerbox{
+            display: flex;
+            flex-direction: row;
+        }
+        #roomId,#maxPlayers{
+            height: 25px;
+        }
+        .hostbuttonall{
+            width: 100%;
+        }
+        #createRoomBtn{
+            height: unset;
+            line-height: unset;
+            padding: 10px 15px;
+            margin-left: 0px;
+        }
+        }
+    </style>
 </head>
 <body>
-  <h1>ホスト画面</h1>
+    <div class="content">
+    <h1>ホスト画面</h1>
 
-  <div style="margin-bottom: 20px; border: 1px solid #ccc; padding: 10px;">
-    <h2>ホスト認証</h2>
-    <p id="hostLoginStatus">自動ログイン中...</p>
+    <div class="status">
+        <h2 class="hosting">ホスト認証</h2>
+        <p id="hostLoginStatus">自動ログイン中...</p>
+        </div>
+
+    <div class="buildroombox">
+        <div class="BRBinnerbox">
+            <input type="text" id="roomId" placeholder="ルームID" />
+            <input type="number" id="maxPlayers" placeholder="最大人数" min="3" value="5" />
+        </div>
+        <button id="createRoomBtn">ルーム作成</button>
+        <span id="createRoomLoading" class="loading-spinner" style="display: none;"></span>
     </div>
 
-  <div>
-    <input type="text" id="roomId" placeholder="ルームID" />
-    <input type="number" id="maxPlayers" placeholder="最大人数" min="3" value="5" />
-    <button id="createRoomBtn">ルーム作成</button>
-    <span id="createRoomLoading" class="loading-spinner" style="display: none;"></span>
-  </div>
+    <div class="role-settings" id="roleSettings" style="display: none;">
+        <h3>役職設定</h3>
+        <p>参加人数: <span id="currentPlayersCount">0</span> / <span id="maxPlayersDisplay">0</span></p>
+        <div class="role-input-group">
+            <label>人狼:</label><input type="number" id="role_人狼" value="1" min="0" max="10">
+        </div>
+        <div class="role-input-group">
+            <label>裏切り者:</label><input type="number" id="role_裏切り者" value="0" min="0" max="10">
+        </div>
+        <div class="role-input-group">
+            <label>村人:</label><input type="number" id="role_村人" value="2" min="0" max="10">
+        </div>
+        <div class="role-input-group">
+            <label>占い師:</label><input type="number" id="role_占い師" value="1" min="0" max="10">
+        </div>
+        <div class="role-input-group">
+            <label>霊媒師:</label><input type="number" id="role_霊媒師" value="0" min="0" max="10">
+        </div>
+        <div class="role-input-group">
+            <label>パン屋:</label><input type="number" id="role_パン屋" value="1" min="0" max="10">
+        </div>
+        <div class="role-input-group">
+            <label>騎士:</label><input type="number" id="role_騎士" value="0" min="0" max="10">
+        </div>
+        <div class="role-total">
+            合計: <span id="totalRolesCount">0</span>
+        </div>
+        <button id="assignRolesBtn" disabled>役職を配る</button>
+        <span id="assignRolesLoading" class="loading-spinner" style="display: none;"></span>
+    </div>
 
-  <div class="role-settings" id="roleSettings" style="display: none;">
-    <h3>役職設定</h3>
-    <p>設定人数: <span id="currentPlayersCount">0</span> / <span id="maxPlayersDisplay">0</span></p>
-    <div class="role-input-group">
-      <label>人狼:</label><input type="number" id="role_人狼" value="1" min="0" max="10">
+    <div>
+        <button id="startDayBtn" class="hostbuttonall" disabled>昼フェーズ開始</button>
+        <span id="startDayLoading" class="loading-spinner" style="display: none;"></span>
     </div>
-    <div class="role-input-group">
-      <label>裏切り者:</label><input type="number" id="role_裏切り者" value="0" min="0" max="10">
-    </div>
-    <div class="role-input-group">
-      <label>村人:</label><input type="number" id="role_村人" value="2" min="0" max="10">
-    </div>
-    <div class="role-input-group">
-      <label>占い師:</label><input type="number" id="role_占い師" value="1" min="0" max="10">
-    </div>
-    <div class="role-input-group">
-      <label>霊媒師:</label><input type="number" id="role_霊媒師" value="0" min="0" max="10">
-    </div>
-    <div class="role-input-group">
-      <label>パン屋:</label><input type="number" id="role_パン屋" value="1" min="0" max="10">
-    </div>
-    <div class="role-input-group">
-      <label>騎士:</label><input type="number" id="role_騎士" value="0" min="0" max="10">
-    </div>
-    <div class="role-total">
-      合計役職数: <span id="totalRolesCount">0</span>
-    </div>
-    <button id="assignRolesBtn" disabled>役職を配る</button>
-    <span id="assignRolesLoading" class="loading-spinner" style="display: none;"></span>
-  </div>
 
-  <div style="margin-top: 20px;">
-    <button id="startDayBtn" disabled>昼フェーズ開始</button>
-    <span id="startDayLoading" class="loading-spinner" style="display: none;"></span>
-  </div>
+    <div>
+        <button id="countVotesBtn" class="hostbuttonall" disabled>投票結果を集計</button>
+        <span id="countVotesLoading" class="loading-spinner" style="display: none;"></span>
+    </div>
 
-  <div style="margin-top: 20px;">
-    <button id="countVotesBtn" disabled>投票結果を集計</button>
-    <span id="countVotesLoading" class="loading-spinner" style="display: none;"></span>
-  </div>
+    <div>
+        <button id="checkGameOverBtn" class="hostbuttonall" disabled>ゲーム終了を判定</button>
+        <span id="checkGameOverLoading" class="loading-spinner" style="display: none;"></span>
+    </div>
 
-  <div style="margin-top: 20px;">
-    <button id="checkGameOverBtn" disabled>ゲーム終了を判定</button>
-    <span id="checkGameOverLoading" class="loading-spinner" style="display: none;"></span>
-  </div>
+    <div>
+        <button id="resetGameBtn" class="hostbuttonall" disabled>ゲームをリセット</button>
+        <span id="resetGameLoading" class="loading-spinner" style="display: none;"></span>
+    </div>
 
-  <div style="margin-top: 20px;">
-    <button id="resetGameBtn" disabled>ゲームをリセット</button>
-    <span id="resetGameLoading" class="loading-spinner" style="display: none;"></span>
-  </div>
+    <div id="messageArea"></div>
 
-  <div id="messageArea"></div>
-
-  <script type="module" src="./host.js"></script>
+    <script type="module" src="./host.js"></script>
+    </div>
 </body>
 </html>

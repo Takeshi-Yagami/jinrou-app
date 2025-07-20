@@ -591,6 +591,11 @@ startDayBtn.onclick = async () => {
 // host.js の handleNightResults 関数全体をこれに置き換えてください
 async function handleNightResults() {
   console.log("デバッグ: handleNightResults: 夜のアクションを処理中...");
+  // ★追加デバッグログ
+    console.log(`デバッグ: 占い師の結果処理 - 占われたプレイヤーUID: ${divinedPlayer}`);
+    console.log(`デバッグ: 占い師 (Voter) UID: ${divineVoterId}`);
+    console.log(`デバッグ: 現在ログインしているホストUID (request.auth.uidに相当): ${currentHostUid}`);
+
   const nightActionsRef = collection(db, "rooms", currentRoomId, "nightActions");
   const nightActionsSnap = await getDocs(nightActionsRef);
   const actions = nightActionsSnap.docs.map(doc => doc.data());

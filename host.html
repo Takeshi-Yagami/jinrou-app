@@ -18,8 +18,6 @@
             background-size: cover; /* 画面いっぱいに表示 */
             background-position: center; /* 画像を中央に配置 */
 
-            overflow: hidden; /* スクロールバーを非表示にする */
-
             margin: 0;
             padding: 0;
         }
@@ -28,7 +26,7 @@
             margin:0 auto;
             display:  flex;
             flex-direction: column;
-            height: 70%;
+            height: 100%;
             z-index: 1; /* 背景より手前に表示 */
         }
         h1{
@@ -39,14 +37,16 @@
             border: 1px solid #4c0000;
             background-color: #130808;
             color: #ffffff;
+            box-sizing: border-box;
         }
         button {
             font-family: "Zen Old Mincho", serif;
-            margin-top: 5px; 
-            margin-bottom: 5px; 
+            margin-top: 7.5px; 
+            margin-bottom: 7.5px; 
             padding: 10px 15px; 
             cursor: pointer;
             border: 1px solid #d10000;
+            box-sizing: border-box;
             background-color: #5c0006;
             color: #ffffff;
         }
@@ -61,6 +61,8 @@
             border: 1px solid #4c0000;
             background-color: #130808;
             color: #ffffff;
+            margin-top: 10px;
+            margin-bottom: 10px;
         }
         .hosting{
             margin-top: 0.6em;
@@ -97,6 +99,7 @@
             display: flex;
             flex-direction: row;
             margin-top: 10px;
+            margin-bottom: 7.5px;
         }
         .BRBinnerbox{
             display: flex;
@@ -104,15 +107,36 @@
             justify-content: space-between;
             align-items: center;
         }
-        #roomId,#maxPlayers{
-            height: 30px;
+        #roomId,#maxPlayers,#reenterRoomId{
+            height: 40px;
             width: 50%;
         }
         #createRoomBtn{
-            height: 34px;
+            height: 40px;
             padding: 0 20px 0 20px;
             line-height: 34px;
             margin-left: 10px;
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+
+        /* ★追加: Re-enter Room 関連のスタイル */
+        .reenter-room-box {
+            display: flex;
+            flex-direction: row;
+            margin-top: 7.5px;
+            margin-bottom: 7.5px;
+        }
+        #reenterRoomId {
+            width: 294px; /* Adjust width as needed */
+        }
+        #reenterRoomBtn {
+            height: 40px;
+            padding: 0 20px 0 20px;
+            line-height: 34px;
+            margin-left: 10px;
+            margin-top: 0;
+            margin-bottom: 0;
         }
 
 
@@ -150,7 +174,10 @@
             background-image: url('img/logo_sp.png'); /* ここに背景画像のURLを設定 */
             background-size: cover; /* 画面いっぱいに表示 */
         }
-        .buildroombox{
+        .content {
+            width: 90%;
+        }
+        .buildroombox, .reenter-room-box{ /* ★変更: reenter-room-boxも追加 */
             display: flex;
             flex-direction: column;
         }
@@ -158,17 +185,24 @@
             display: flex;
             flex-direction: row;
         }
-        #roomId,#maxPlayers{
-            height: 25px;
+        #roomId,#maxPlayers, #reenterRoomId{ /* ★変更: reenterRoomIdも追加 */
+            height: 30px;
         }
         .hostbuttonall{
             width: 100%;
         }
-        #createRoomBtn{
+        #createRoomBtn, #reenterRoomBtn{ /* ★変更: reenterRoomBtnも追加 */
             height: unset;
             line-height: unset;
             padding: 10px 15px;
             margin-left: 0px;
+            margin-bottom:7.5px;
+        }
+        #reenterRoomId {
+            width: 100%; /* Adjust width as needed */
+        }
+        #reenterRoomId,#roomId,#maxPlayers{
+            margin-bottom: 3px;
         }
         }
     </style>
@@ -185,11 +219,18 @@
     <div class="buildroombox">
         <div class="BRBinnerbox">
             <input type="text" id="roomId" placeholder="ルームID" />
-            <input type="number" id="maxPlayers" placeholder="最大人数" min="3" value="5" />
+            <input type="number" id="maxPlayers" placeholder="最大人数" min="3"/>
         </div>
         <button id="createRoomBtn">ルーム作成</button>
         <span id="createRoomLoading" class="loading-spinner" style="display: none;"></span>
     </div>
+
+    <div class="reenter-room-box">
+        <input type="text" id="reenterRoomId" placeholder="既存のルームIDで再参加" />
+        <button id="reenterRoomBtn">ホストとして参加</button>
+        <span id="reenterRoomLoading" class="loading-spinner" style="display: none;"></span>
+    </div>
+
 
     <div class="role-settings" id="roleSettings" style="display: none;">
         <h3>役職設定</h3>
@@ -240,6 +281,11 @@
     <div>
         <button id="resetGameBtn" class="hostbuttonall" disabled>ゲームをリセット</button>
         <span id="resetGameLoading" class="loading-spinner" style="display: none;"></span>
+    </div>
+
+    <div>
+        <button id="deleteRoomBtn" class="hostbuttonall" disabled >ルームを完全に削除</button>
+        <span id="deleteRoomLoading" class="loading-spinner" style="display: none;"></span>
     </div>
 
     <div id="messageArea"></div>

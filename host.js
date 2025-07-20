@@ -414,9 +414,7 @@ reenterRoomBtn.onclick = async () => {
 
 
 // 役職割り当て
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 assignRolesBtn.onclick = async () => {
-  // 事前条件の確認 (既存コードと同じ)
   if (!currentHostUid) {
     showMessage("この操作を行うにはホストとしてログインしてください。");
     return;
@@ -438,43 +436,6 @@ assignRolesBtn.onclick = async () => {
   showMessage("役職を割り当て中...");
 
   try {
-    // --- デバッグコード: ルームのhostUidと現在のホストUIDの一致を再確認 ---
-    console.log("--- 役職割り当て開始デバッグ ---");
-    console.log("現在のルームID:", currentRoomId);
-    console.log("現在のホストUID:", currentHostUid);
-
-    const roomRef = doc(db, "rooms", currentRoomId);
-    const roomSnap = await getDoc(roomRef);
-
-    if (roomSnap.exists()) {
-      const roomData = roomSnap.data();
-      console.log("Firestore上のルームデータ:", roomData);
-      if (roomData.hostUid) {
-        console.log("Firestore上のhostUid:", roomData.hostUid);
-        if (roomData.hostUid === currentHostUid) {
-          console.log("Firestore上のhostUidと現在のホストUIDが一致しています。");
-        } else {
-          console.error("Firestore上のhostUidと現在のホストUIDが一致しません！");
-          showMessage("エラー: ルームのホストUIDが現在のログインユーザーと一致しません。");
-          setLoading(assignRolesBtn, assignRolesLoading, false);
-          return; // 処理を中断
-        }
-      } else {
-        console.error("Firestore上のルームデータにhostUidフィールドが見つかりません！");
-        showMessage("エラー: ルームデータにhostUidが設定されていません。ルームを再作成してください。");
-        setLoading(assignRolesBtn, assignRolesLoading, false);
-        return; // 処理を中断
-      }
-    } else {
-      console.error("Firestoreにルームドキュメントが見つかりません:", currentRoomId);
-      showMessage("エラー: 指定されたルームが見つかりません。ルームを再作成してください。");
-      setLoading(assignRolesBtn, assignRolesLoading, false);
-      return; // 処理を中断
-    }
-    console.log("--- デバッグ: hostUid確認完了 ---");
-    // --- デバッグコードここまで ---
-
-
     const playersRef = collection(db, "rooms", currentRoomId, "players");
     const snapshot = await getDocs(playersRef);
     const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -492,69 +453,29 @@ assignRolesBtn.onclick = async () => {
     }
     rolesToAssign.sort(() => Math.random() - 0.5);
 
-    // --- デバッグコード: 各プレイヤーへの割り当てデータとFirestore書き込み ---
-    console.log("--- デバッグ: 各プレイヤーへの役職割り当て開始 ---");
     for (let i = 0; i < players.length; i++) {
       const playerId = players[i].id;
       const role = rolesToAssign[i];
-      const faction = FACTIONS[role]; // FACTIONS[role] の結果を変数に格納
-
-      // ここで、役職と派閥が期待通りの値か、特に undefined になっていないかを確認
-      if (role === undefined || role === null || typeof role !== 'string' ||
-          faction === undefined || faction === null || typeof faction !== 'string') {
-          console.error(`デバッグエラー: プレイヤー ${playerId} に割り当てられる役職または派閥が不正です。`);
-          console.error(`Role: ${role}, Faction: ${faction}`);
-          showMessage("内部エラー: 役職データが不正です。");
-          setLoading(assignRolesBtn, assignRolesLoading, false);
-          return; // 処理を中断
-      }
-      
-      const updateData = {
+      // FACTIONS[role] が undefined にならないことを確認済みなので、直接使用
+      await updateDoc(doc(db, "rooms", currentRoomId, "players", playerId), {
         role: role,
-        faction: faction,
+        faction: FACTIONS[role],
         status: "alive"
-      };
-
-      console.log(`デバッグ: プレイヤーID: ${playerId}, 割り当てデータ:`, updateData);
-
-      try {
-        await updateDoc(doc(db, "rooms", currentRoomId, "players", playerId), updateData);
-        console.log(`デバッグ: プレイヤー ${playerId} の役職を更新しました。`);
-      } catch (innerError) {
-        console.error(`デバッグエラー: プレイヤー ${playerId} の役職更新中にパーミッションエラーが発生しました。`, innerError);
-        showMessage(`エラー: プレイヤー ${playerId} の役職割り当てに失敗しました。詳細をコンソールで確認してください。`);
-        setLoading(assignRolesBtn, assignRolesLoading, false);
-        return; // エラーが発生したら処理を中断
-      }
-    }
-    console.log("--- デバッグ: 各プレイヤーへの役職割り当て完了 ---");
-    // --- デバッグコードここまで ---
-
-    // ルームフェーズの更新 (既存コードと同じ)
-    try {
-        const roomPhaseUpdateData = { phase: "night" };
-        console.log("デバッグ: ルームフェーズを更新中:", roomPhaseUpdateData);
-        await updateDoc(doc(db, "rooms", currentRoomId), roomPhaseUpdateData);
-        console.log("デバッグ: ルームフェーズを更新しました。");
-    } catch (phaseUpdateError) {
-        console.error("デバッグエラー: ルームフェーズ更新中にパーミッションエラーが発生しました。", phaseUpdateError);
-        showMessage("エラー: ゲームフェーズの移行に失敗しました。詳細をコンソールで確認してください。");
-        setLoading(assignRolesBtn, assignRolesLoading, false);
-        return; // エラーが発生したら処理を中断
+      });
     }
 
+    await updateDoc(doc(db, "rooms", currentRoomId), {
+      phase: "night"
+    });
 
     showMessage("役職を割り当てました。ゲーム開始です（夜フェーズ）。");
   } catch (error) {
-    // ここは主に、Firestoreへの初回読み込み(getDocs)や、予期せぬエラーを捕捉
-    console.error("役職割り当て処理全体のエラー:", error);
+    console.error("役職割り当てエラー:", error);
     showMessage("役職の割り当てに失敗しました。");
   } finally {
     setLoading(assignRolesBtn, assignRolesLoading, false);
-    console.log("--- 役職割り当てデバッグ終了 ---");
   }
 };
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 // 昼フェーズ開始

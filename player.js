@@ -407,7 +407,7 @@ async function handleNightPhase(roomId, playerUid) {
 
       // 投票者名ではなくUIDをvoterフィールドに保存する方が正確性高いが、今回は既存のままDisplayNameを使用
       await setDoc(doc(db, "rooms", roomId, "nightActions", playerUid), {
-        voter: currentDisplayName, // playerUid を使うべきだが、現状維持
+        voter: playerUid,
         action: actionType,
         target: target
       });

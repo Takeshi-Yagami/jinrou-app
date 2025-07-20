@@ -1,7 +1,7 @@
 // player.js
 import { db, auth } from './firebase-config.js';
 import {
-  collection, doc, getDoc, setDoc, onSnapshot, getDocs, updateDoc
+  collection, doc, getDoc, setDoc, onSnapshot, getDocs, updateDoc, deleteDoc // ★変更: deleteDoc を追加
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 import {
   signInAnonymously // ★これをインポート
@@ -41,6 +41,10 @@ const resultContainer = document.getElementById('resultContainer');
 const resultTitle = document.getElementById('resultTitle');
 const playerListResult = document.getElementById('playerListResult');
 
+// ★追加: プレイヤー退出ボタン
+const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+const leaveRoomLoading = document.getElementById('leaveRoomLoading');
+
 // ※以下はHTMLに存在しない要素のため、もしhost.jsにあるUIをplayer.jsに表示する意図があるならHTMLに追加し、IDを合わせる必要があります。
 // const phaseDisplay = document.getElementById('phaseDisplay');
 // const gameResultDisplay = document.getElementById('gameResultDisplay');
@@ -54,6 +58,10 @@ let currentAuthUid = null; // ★Firebase Auth のUIDを格納
 let currentDisplayName = null; // ★ユーザーが入力した表示名
 let currentRoomId = null;
 let currentPlayerStatusValue = 'alive';
+let roomPhaseUnsubscribe = null; // ★追加: onSnapshotの購読解除用変数
+let playerDocUnsubscribe = null; // ★追加: onSnapshotの購読解除用変数
+let gameOverUnsubscribe = null; // ★追加: onSnapshotの購読解除用変数
+
 
 // ★追加: 役職名と画像パスのマッピング
 // 画像ファイルは 'roles/' フォルダに配置されていることを想定
@@ -101,9 +109,18 @@ function resetUI() {
   nightActionDiv.style.display = 'none';
   dayActionDiv.style.display = 'none';
   resultContainer.style.display = 'none';
+  roleArea.style.display = 'none'; // ★変更: 役職表示エリアも非表示に
   roleCardArea.style.display = 'none'; // ★変更: カードエリアも非表示に
   roleCardImage.src = ''; // ★変更: 画像をクリア
   roleCardImage.alt = ''; // ★変更: altテキストもクリア
+  statusArea.style.display = 'none'; // ★変更: ステータスエリアも非表示に
+
+  // ★追加: 参加/退出ボタンの状態をリセット
+  roomIdInput.disabled = false;
+  playerNameInput.disabled = false;
+  joinBtn.disabled = false;
+  leaveRoomBtn.style.display = 'none'; // 退出ボタンを非表示に
+
   // ※以下はHTMLに存在しない要素なので、もし必要ならHTMLに追加してください
   // phaseDisplay.textContent = '';
   // gameResultDisplay.textContent = '';
@@ -173,8 +190,13 @@ joinBtn.onclick = async () => {
       updateRoleDisplay(null); // ★変更: 役職はまだないことを表示
     }
 
+    // 既存の購読を解除
+    if (playerDocUnsubscribe) playerDocUnsubscribe();
+    if (roomPhaseUnsubscribe) roomPhaseUnsubscribe();
+    if (gameOverUnsubscribe) gameOverUnsubscribe();
+
     // プレイヤー自身のドキュメントをリアルタイム監視
-    onSnapshot(playerRef, (docSnap) => {
+    playerDocUnsubscribe = onSnapshot(playerRef, (docSnap) => { // ★変更: 購読解除用変数に代入
       if (docSnap.exists()) {
         const playerData = docSnap.data();
         currentRole = playerData.role;
@@ -190,23 +212,9 @@ joinBtn.onclick = async () => {
           updateDoc(playerRef, { divineResult: null });
         }
       } else {
-        // プレイヤーデータが削除された場合（例：ゲームリセット時）
-        currentRole = null;
-        currentPlayerStatusValue = 'alive';
-        roleArea.style.display = 'none';
-        roleCardArea.style.display = 'none'; // ★変更: カードエリアも非表示に
-        statusArea.style.display = 'none';
+        // プレイヤーデータが削除された場合（例：ゲームリセット時、または自分で退出時）
         showMessage("ルームから退出しました。");
-        // UIを初期状態に戻す
-        roomIdInput.disabled = false;
-        playerNameInput.disabled = false;
-        joinBtn.disabled = false;
-        nightActionDiv.style.display = 'none';
-        dayActionDiv.style.display = 'none';
-        // phaseDisplay.textContent = ''; // HTMLに存在しない
-        // gameResultArea.style.display = 'none'; // HTMLに存在しない
-        // executedPlayerDisplay.textContent = ''; // HTMLに存在しない
-        // bakerStatusDisplay.textContent = ''; // HTMLに存在しない
+        resetGlobalStateAndUI(); // ★変更: 共通の初期化関数を呼び出す
       }
     }, (error) => {
       console.error("プレイヤーデータのリアルタイム更新エラー:", error);
@@ -221,6 +229,7 @@ joinBtn.onclick = async () => {
     roomIdInput.disabled = true;
     playerNameInput.disabled = true;
     joinBtn.disabled = true;
+    leaveRoomBtn.style.display = 'block'; // ★追加: 退出ボタンを表示
 
   } catch (error) {
     console.error("ルーム参加エラー:", error);
@@ -230,24 +239,57 @@ joinBtn.onclick = async () => {
   }
 };
 
+// ★追加: プレイヤー退出ボタンクリック
+leaveRoomBtn.onclick = async () => {
+    if (!currentRoomId || !currentAuthUid) {
+        showMessage("参加中のルームがありません。");
+        return;
+    }
+
+    if (confirm("本当にルームから退出しますか？ゲームは途中でもあなたのデータは削除されます。")) {
+        setLoading(leaveRoomBtn, leaveRoomLoading, true);
+        showMessage("ルームを退出中...");
+        try {
+            await deleteDoc(doc(db, 'rooms', currentRoomId, 'players', currentAuthUid));
+            // onSnapshotのコールバックで resetGlobalStateAndUI が呼ばれるはず
+        } catch (error) {
+            console.error("ルーム退出エラー:", error);
+            showMessage("ルームの退出に失敗しました。");
+        } finally {
+            setLoading(leaveRoomBtn, leaveRoomLoading, false);
+        }
+    }
+};
+
+// ★追加: グローバル変数とUIをリセットする共通関数
+function resetGlobalStateAndUI() {
+    // 既存の購読を全て解除
+    if (playerDocUnsubscribe) {playerDocUnsubscribe(); playerDocUnsubscribe = null;}
+    if (roomPhaseUnsubscribe) {roomPhaseUnsubscribe(); roomPhaseUnsubscribe = null;}
+    if (gameOverUnsubscribe) {gameOverUnsubscribe(); gameOverUnsubscribe = null;}
+
+    currentRole = null;
+    currentAuthUid = null;
+    currentDisplayName = null;
+    currentRoomId = null;
+    currentPlayerStatusValue = 'alive';
+    sessionStorage.removeItem('bakerNotified_' + currentRoomId); // セッションストレージもクリア
+    resetUI(); // UIを初期状態に戻す
+    showMessage("ゲームは終了しました、またはルームから退出しました。");
+}
+
+
 // --- watchRoomPhase ---
 function watchRoomPhase(roomId, playerUid) {
   const roomRef = doc(db, 'rooms', roomId);
-  onSnapshot(roomRef, async (docSnap) => {
+  // 既存の購読があれば解除
+  if (roomPhaseUnsubscribe) roomPhaseUnsubscribe();
+
+  roomPhaseUnsubscribe = onSnapshot(roomRef, async (docSnap) => { // ★変更: 購読解除用変数に代入
     const roomData = docSnap.data();
     if (!roomData) {
         showMessage("ルームが存在しないか、ゲームがリセットされました。");
-        resetUI();
-        roomIdInput.disabled = false;
-        playerNameInput.disabled = false;
-        joinBtn.disabled = false;
-        currentRoomId = null;
-        currentRole = null;
-        currentAuthUid = null;
-        currentDisplayName = null;
-        currentPlayerStatusValue = 'alive';
-        roleArea.style.display = 'none';
-        statusArea.style.display = 'none';
+        resetGlobalStateAndUI(); // ★変更: 共通の初期化関数を呼び出す
         return;
     }
 
@@ -363,8 +405,9 @@ async function handleNightPhase(roomId, playerUid) {
         return;
       }
 
+      // 投票者名ではなくUIDをvoterフィールドに保存する方が正確性高いが、今回は既存のままDisplayNameを使用
       await setDoc(doc(db, "rooms", roomId, "nightActions", playerUid), {
-        voter: currentDisplayName,
+        voter: currentDisplayName, // playerUid を使うべきだが、現状維持
         action: actionType,
         target: target
       });
@@ -400,6 +443,7 @@ async function handleDayPhase(roomId, playerUid) {
     voteTargetSelect.appendChild(option);
   });
   voteBtn.disabled = false;
+  dayActionDiv.style.display = 'block'; // ★変更: 昼アクション表示
 
   voteBtn.onclick = async () => {
     const target = voteTargetSelect.value;
@@ -413,7 +457,7 @@ async function handleDayPhase(roomId, playerUid) {
 
     try {
       await setDoc(doc(db, "rooms", roomId, "votes", playerUid), {
-        voter: currentDisplayName,
+        voter: currentDisplayName, // playerUid を使うべきだが、現状維持
         target: target
       });
       const targetName = targets.find(t => t.id === target)?.name || target;
@@ -431,7 +475,10 @@ async function handleDayPhase(roomId, playerUid) {
 // --- watchGameOver ---
 async function watchGameOver(roomId) {
   const roomRef = doc(db, 'rooms', roomId);
-  onSnapshot(roomRef, (docSnap) => {
+  // 既存の購読があれば解除
+  if (gameOverUnsubscribe) gameOverUnsubscribe();
+
+  gameOverUnsubscribe = onSnapshot(roomRef, (docSnap) => { // ★変更: 購読解除用変数に代入
     if (docSnap.exists()) {
       const roomData = docSnap.data();
       if (roomData.gameOver) {
@@ -444,13 +491,32 @@ async function watchGameOver(roomId) {
           gameResultAreaElement.style.display = 'block';
           gameResultTitleElement.textContent = `🎉 ${roomData.winner}陣営の勝利 🎉`;
           // プレイヤーリストもここで更新するなら追加
-        }
+          // プレイヤーリストの表示 (簡易版)
+          getDocs(collection(db, 'rooms', roomId, 'players')).then(playersSnap => {
+            playerListResultElement.innerHTML = ''; // クリア
+            playersSnap.forEach(playerDoc => {
+              const playerData = playerDoc.data();
+              const listItem = document.createElement('li');
+              listItem.textContent = `${playerData.name} (${playerData.role || '未定'}) - ${playerData.status === 'alive' ? '生存' : '死亡'}`;
+              playerListResultElement.appendChild(listItem);
+            });
+          });
 
-        resetUI(); // アクションUIを非表示
+        }
+        // ゲーム終了時はUIをリセットして初期状態に戻る（退出ボタンなども非表示に）
+        // ただし、このwatchGameOverはルームが存在しなくなった場合にも発火し、
+        // その場合はwatchRoomPhaseが resetGlobalStateAndUI を呼ぶため重複注意。
+        // ここではUIのみリセットし、グローバル変数のリセットは行わない。
+        // resetUI(); // これを呼ぶと退出ボタンも非表示になるので注意
+        // 代わりに、ゲーム終了時のUI表示は残し、操作ボタンを無効化する
+        nightActionDiv.style.display = 'none';
+        dayActionDiv.style.display = 'none';
+        leaveRoomBtn.style.display = 'block'; // ゲーム結果画面でも退出は可能に
+
         roomIdInput.disabled = false;
         playerNameInput.disabled = false;
         joinBtn.disabled = false;
-        sessionStorage.removeItem('bakerNotified_' + roomId);
+        // sessionStorage.removeItem('bakerNotified_' + roomId); // ゲーム終了時はクリア
       }
     }
   }, (error) => {
@@ -473,5 +539,5 @@ async function watchGameOver(roomId) {
 
 // 初期ロード時の処理
 document.addEventListener('DOMContentLoaded', () => {
-  // 特に何もしない。参加ボタンが押されたときに認証を行う。
+  resetUI(); // ページ読み込み時にUIを初期状態にリセット
 });

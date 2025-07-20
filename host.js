@@ -436,6 +436,44 @@ assignRolesBtn.onclick = async () => {
   showMessage("役職を割り当て中...");
 
   try {
+    
+    // ★追加するデバッグコードここから　-----------------------------------------------------------------------------------------
+    console.log("--- 役職割り当て開始デバッグ ---");
+    console.log("現在のルームID:", currentRoomId);
+    console.log("現在のホストUID:", currentHostUid);
+
+    const roomRef = doc(db, "rooms", currentRoomId);
+    const roomSnap = await getDoc(roomRef);
+
+    if (roomSnap.exists()) {
+      const roomData = roomSnap.data();
+      console.log("Firestore上のルームデータ:", roomData);
+      if (roomData.hostUid) {
+        console.log("Firestore上のhostUid:", roomData.hostUid);
+        if (roomData.hostUid === currentHostUid) {
+          console.log("Firestore上のhostUidと現在のホストUIDが一致しています。");
+        } else {
+          console.error("Firestore上のhostUidと現在のホストUIDが一致しません！");
+          showMessage("エラー: ルームのホストUIDが現在のログインユーザーと一致しません。");
+          setLoading(assignRolesBtn, assignRolesLoading, false);
+          return; // 処理を中断
+        }
+      } else {
+        console.error("Firestore上のルームデータにhostUidフィールドが見つかりません！");
+        showMessage("エラー: ルームデータにhostUidが設定されていません。ルームを再作成してください。");
+        setLoading(assignRolesBtn, assignRolesLoading, false);
+        return; // 処理を中断
+      }
+    } else {
+      console.error("Firestoreにルームドキュメントが見つかりません:", currentRoomId);
+      showMessage("エラー: 指定されたルームが見つかりません。ルームを再作成してください。");
+      setLoading(assignRolesBtn, assignRolesLoading, false);
+      return; // 処理を中断
+    }
+    console.log("--- デバッグ終了 ---");
+    // ★追加するデバッグコードここまで -----------------------------------------------------------------------------------------
+
+    
     const playersRef = collection(db, "rooms", currentRoomId, "players");
     const snapshot = await getDocs(playersRef);
     const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));

@@ -640,24 +640,31 @@ async function handleNightResults() {
 
   const divineActions = actions.filter(a => a.action === "divine");
   if (divineActions.length > 0) {
-      const divinedPlayer = divineActions[0].target;
-      const targetPlayerSnap = await getDoc(doc(db, "rooms", currentRoomId, "players", divinedPlayer));
-      if (targetPlayerSnap.exists()) {
-          const targetData = targetPlayerSnap.data();
-          const divineResultRole = (targetData.role === "人狼" || targetData.role === "裏切り者") ? "人狼" : "村人";
-          console.log(`デバッグ: 占い師の結果をプレイヤー ${divineActions[0].voter} に書き込み中...`);
-          try {
-            await updateDoc(doc(db, "rooms", currentRoomId, "players", divineActions[0].voter), {
-                divineResult: { target: divinedPlayer, role: divineResultRole }
-            });
-            console.log(`デバッグ: 占い師の結果をプレイヤー ${divineActions[0].voter} に書き込みました。`);
-            showMessage(`${divinedPlayer} が占い師に占われました。（結果は占い師に通知）`);
-          } catch (divineUpdateError) {
-              console.error(`デバッグエラー: 占い師の結果書き込み中にパーミッションエラーが発生しました。`, divineUpdateError);
-              throw divineUpdateError; // 上位のtry/catchで捕捉
-          }
-      }
-  }
+        const divinedPlayer = divineActions[0].target;
+        // divineActions[0].voter は UID になったので、プレイヤー情報を取得し直す
+        const divineVoterId = divineActions[0].voter; // ★ここがUIDになる
+        const targetPlayerSnap = await getDoc(doc(db, "rooms", currentRoomId, "players", divinedPlayer));
+        const divineVoterSnap = await getDoc(doc(db, "rooms", currentRoomId, "players", divineVoterId)); // ★占い師のプレイヤーデータを取得
+  
+        if (targetPlayerSnap.exists() && divineVoterSnap.exists()) { // ★占い師のプレイヤーも存在するか確認
+            const targetData = targetPlayerSnap.data();
+            const divineResultRole = (targetData.role === "人狼" || targetData.role === "裏切り者") ? "人狼" : "村人";
+            
+            console.log(`デバッグ: 占い師の結果をプレイヤー ${divineVoterId} に書き込み中...`); // ★ログもUIDで
+            try {
+              await updateDoc(doc(db, "rooms", currentRoomId, "players", divineVoterId), { // ★ここをUIDに修正
+                  divineResult: { target: divinedPlayer, role: divineResultRole }
+              });
+              console.log(`デバッグ: 占い師の結果をプレイヤー ${divineVoterId} に書き込みました。`); // ★ログもUIDで
+              showMessage(`${divinedPlayer} が占い師に占われました。（結果は占い師に通知）`);
+            } catch (divineUpdateError) {
+                console.error(`デバッグエラー: 占い師の結果書き込み中にパーミッションエラーが発生しました。`, divineUpdateError);
+                throw divineUpdateError; // 上位のtry/catchで捕捉
+            }
+        } else {
+          console.warn(`デバッグ警告: 占い師 (${divineVoterId}) または占われたプレイヤー (${divinedPlayer}) のデータが見つかりません。`);
+        }
+    }
   console.log("デバッグ: handleNightResults: 夜のアクション処理完了。");
 }
 

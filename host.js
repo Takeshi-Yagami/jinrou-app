@@ -477,8 +477,8 @@ assignRolesBtn.onclick = async () => {
   }
 };
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// 昼フェーズ開始
 startDayBtn.onclick = async () => {
   if (!currentHostUid) {
     showMessage("この操作を行うにはホストとしてログインしてください。");
@@ -493,29 +493,104 @@ startDayBtn.onclick = async () => {
   showMessage("昼フェーズを開始中...");
 
   try {
-    await handleNightResults();
+    // --- デバッグコード: ルームのhostUidと現在のホストUIDの一致を再確認 ---
+    console.log("--- 昼フェーズ開始デバッグ ---");
+    console.log("現在のルームID:", currentRoomId);
+    console.log("現在のホストUID:", currentHostUid);
 
-    const nightActionsRef = collection(db, "rooms", currentRoomId, "nightActions");
-    const nightActionsSnap = await getDocs(nightActionsRef);
-    for (const actionDoc of nightActionsSnap.docs) {
-      await deleteDoc(actionDoc.ref);
+    const roomRef = doc(db, "rooms", currentRoomId);
+    const roomSnap = await getDoc(roomRef);
+
+    if (roomSnap.exists()) {
+      const roomData = roomSnap.data();
+      console.log("Firestore上のルームデータ (昼フェーズ開始時):", roomData);
+      if (roomData.hostUid) {
+        console.log("Firestore上のhostUid (昼フェーズ開始時):", roomData.hostUid);
+        if (roomData.hostUid === currentHostUid) {
+          console.log("Firestore上のhostUidと現在のホストUIDが一致しています (昼フェーズ開始時)。");
+        } else {
+          console.error("Firestore上のhostUidと現在のホストUIDが一致しません (昼フェーズ開始時)！");
+          showMessage("エラー: ルームのホストUIDが現在のログインユーザーと一致しません。");
+          setLoading(startDayBtn, startDayLoading, false);
+          return; // 処理を中断
+        }
+      } else {
+        console.error("Firestore上のルームデータにhostUidフィールドが見つかりません (昼フェーズ開始時)！");
+        showMessage("エラー: ルームデータにhostUidが設定されていません。");
+        setLoading(startDayBtn, startDayLoading, false);
+        return; // 処理を中断
+      }
+    } else {
+      console.error("Firestoreにルームドキュメントが見つかりません (昼フェーズ開始時):", currentRoomId);
+      showMessage("エラー: 指定されたルームが見つかりません。");
+      setLoading(startDayBtn, startDayLoading, false);
+      return; // 処理を中断
+    }
+    console.log("--- デバッグ: hostUid確認完了 (昼フェーズ開始時) ---");
+    // --- デバッグコードここまで ---
+
+    // handleNightResults() の中でのエラーも可能性あり
+    console.log("デバッグ: handleNightResults 関数を呼び出し中...");
+    try {
+      await handleNightResults();
+      console.log("デバッグ: handleNightResults 関数が完了しました。");
+    } catch (handleResultError) {
+      console.error("デバッグエラー: handleNightResults 実行中にエラーが発生しました。", handleResultError);
+      showMessage("夜のアクション結果処理中にエラーが発生しました。詳細をコンソールで確認してください。");
+      setLoading(startDayBtn, startDayLoading, false);
+      return;
     }
 
-    await updateDoc(doc(db, "rooms", currentRoomId), {
-      phase: "day"
-    });
+    console.log("デバッグ: nightActions コレクションのドキュメントを削除中...");
+    const nightActionsRef = collection(db, "rooms", currentRoomId, "nightActions");
+    const nightActionsSnap = await getDocs(nightActionsRef);
+    if (nightActionsSnap.empty) {
+        console.log("デバッグ: 削除する夜のアクションはありません。");
+    }
+    for (const actionDoc of nightActionsSnap.docs) {
+      console.log("デバッグ: nightActions ドキュメントを削除中:", actionDoc.id);
+      try {
+        await deleteDoc(actionDoc.ref);
+        console.log(`デバッグ: nightActions ドキュメント ${actionDoc.id} を削除しました。`);
+      } catch (deleteError) {
+        console.error(`デバッグエラー: nightActions ドキュメント ${actionDoc.id} の削除中にパーミッションエラーが発生しました。`, deleteError);
+        showMessage(`エラー: 夜のアクションデータの削除に失敗しました。詳細をコンソールで確認してください。`);
+        setLoading(startDayBtn, startDayLoading, false);
+        return;
+      }
+    }
+    console.log("デバッグ: nightActions コレクションのドキュメント削除完了。");
+
+
+    console.log("デバッグ: ルームフェーズを 'day' に更新中...");
+    try {
+      await updateDoc(doc(db, "rooms", currentRoomId), {
+        phase: "day"
+      });
+      console.log("デバッグ: ルームフェーズを 'day' に更新しました。");
+    } catch (phaseUpdateError) {
+      console.error("デバッグエラー: ルームフェーズを 'day' に更新中にパーミッションエラーが発生しました。", phaseUpdateError);
+      showMessage("エラー: 昼フェーズへの移行に失敗しました。詳細をコンソールで確認してください。");
+      setLoading(startDayBtn, startDayLoading, false);
+      return;
+    }
+
 
     showMessage("昼フェーズを開始しました。");
   } catch (error) {
-    console.error("昼フェーズ開始エラー:", error);
+    // ここは主に getDocs(playersRef) など、個別の try/catch で捕捉しきれないエラー
+    console.error("昼フェーズ開始処理全体のエラー:", error);
     showMessage("昼フェーズの開始に失敗しました。");
   } finally {
     setLoading(startDayBtn, startDayLoading, false);
+    console.log("--- 昼フェーズ開始デバッグ終了 ---");
   }
 };
 
-// 夜のアクション結果を処理する関数（ホスト側で実行）
+// handleNightResults 関数もデバッグ情報を追加するために修正
+// host.js の handleNightResults 関数全体をこれに置き換えてください
 async function handleNightResults() {
+  console.log("デバッグ: handleNightResults: 夜のアクションを処理中...");
   const nightActionsRef = collection(db, "rooms", currentRoomId, "nightActions");
   const nightActionsSnap = await getDocs(nightActionsRef);
   const actions = nightActionsSnap.docs.map(doc => doc.data());
@@ -526,27 +601,39 @@ async function handleNightResults() {
   const guardActions = actions.filter(a => a.action === "guard");
   if (guardActions.length > 0) {
       protectedPlayer = guardActions[0].target;
+      console.log(`デバッグ: ${protectedPlayer} が騎士に護衛されました。`);
       showMessage(`${protectedPlayer} が騎士に護衛されました。`);
   }
 
   const killActions = actions.filter(a => a.action === "kill");
   if (killActions.length > 0) {
       const targetToKill = killActions[0].target;
+      console.log(`デバッグ: 人狼の襲撃ターゲット: ${targetToKill}, 護衛ターゲット: ${protectedPlayer}`);
       if (targetToKill !== protectedPlayer) {
           killedPlayer = targetToKill;
-          await updateDoc(doc(db, "rooms", currentRoomId, "players", killedPlayer), {
-              status: "dead"
-          });
-          showMessage(`${killedPlayer} が人狼に襲撃されました。`);
-
-          const killedPlayerSnap = await getDoc(doc(db, "rooms", currentRoomId, "players", killedPlayer));
-          if (killedPlayerSnap.exists() && killedPlayerSnap.data().role === "パン屋") {
-            await updateDoc(doc(db, "rooms", currentRoomId), {
-                bakerStatus: "dead"
+          console.log(`デバッグ: プレイヤー ${killedPlayer} を死亡状態に更新中...`);
+          try {
+            await updateDoc(doc(db, "rooms", currentRoomId, "players", killedPlayer), {
+                status: "dead"
             });
-            showMessage("パン屋が人狼に襲撃されました！");
+            console.log(`デバッグ: プレイヤー ${killedPlayer} のステータスを 'dead' に更新しました。`);
+            showMessage(`${killedPlayer} が人狼に襲撃されました。`);
+
+            const killedPlayerSnap = await getDoc(doc(db, "rooms", currentRoomId, "players", killedPlayer));
+            if (killedPlayerSnap.exists() && killedPlayerSnap.data().role === "パン屋") {
+                console.log("デバッグ: 襲撃されたのはパン屋です。ルームのbakerStatusを更新中...");
+                await updateDoc(doc(db, "rooms", currentRoomId), {
+                    bakerStatus: "dead"
+                });
+                console.log("デバッグ: bakerStatus を 'dead' に更新しました。");
+                showMessage("パン屋が人狼に襲撃されました！");
+            }
+          } catch (killedPlayerUpdateError) {
+              console.error(`デバッグエラー: プレイヤー ${killedPlayer} のステータス更新中にパーミッションエラーが発生しました。`, killedPlayerUpdateError);
+              throw killedPlayerUpdateError; // 上位のtry/catchで捕捉
           }
       } else {
+          console.log(`デバッグ: ${protectedPlayer} は騎士に護衛され、襲撃を免れました。`);
           showMessage(`${protectedPlayer} は騎士に護衛され、襲撃を免れました。`);
       }
   }
@@ -558,13 +645,23 @@ async function handleNightResults() {
       if (targetPlayerSnap.exists()) {
           const targetData = targetPlayerSnap.data();
           const divineResultRole = (targetData.role === "人狼" || targetData.role === "裏切り者") ? "人狼" : "村人";
-          await updateDoc(doc(db, "rooms", currentRoomId, "players", divineActions[0].voter), {
-              divineResult: { target: divinedPlayer, role: divineResultRole }
-          });
-          showMessage(`${divinedPlayer} が占い師に占われました。（結果は占い師に通知）`);
+          console.log(`デバッグ: 占い師の結果をプレイヤー ${divineActions[0].voter} に書き込み中...`);
+          try {
+            await updateDoc(doc(db, "rooms", currentRoomId, "players", divineActions[0].voter), {
+                divineResult: { target: divinedPlayer, role: divineResultRole }
+            });
+            console.log(`デバッグ: 占い師の結果をプレイヤー ${divineActions[0].voter} に書き込みました。`);
+            showMessage(`${divinedPlayer} が占い師に占われました。（結果は占い師に通知）`);
+          } catch (divineUpdateError) {
+              console.error(`デバッグエラー: 占い師の結果書き込み中にパーミッションエラーが発生しました。`, divineUpdateError);
+              throw divineUpdateError; // 上位のtry/catchで捕捉
+          }
       }
   }
+  console.log("デバッグ: handleNightResults: 夜のアクション処理完了。");
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // 投票集計
 countVotesBtn.onclick = async () => {

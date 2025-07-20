@@ -348,7 +348,7 @@ createRoomBtn.onclick = async () => {
 
 // 役職割り当て
 assignRolesBtn.onclick = async () => {
-  console.log("現在のホストUID:", currentHostUid);
+assignRolesBtn.onclick = async () => {
   if (!currentHostUid) {
     showMessage("この操作を行うにはホストとしてログインしてください。");
     return;
@@ -387,24 +387,35 @@ assignRolesBtn.onclick = async () => {
     }
     rolesToAssign.sort(() => Math.random() - 0.5);
 
+    // バッチ書き込みを使用してアトミック性を高める (オプション)
+    // ただし、updateDoc が失敗している場合は、原因は権限にあるため、これは直接的な解決策ではない
+    // const batch = writeBatch(db); // writeBatchをインポートする必要がある
     for (let i = 0; i < players.length; i++) {
       const playerId = players[i].id;
       const role = rolesToAssign[i];
-      await updateDoc(doc(db, "rooms", currentRoomId, "players", playerId), {
+      const playerDocRef = doc(db, "rooms", currentRoomId, "players", playerId);
+      // batch.update(playerDocRef, { // バッチを使う場合
+      await updateDoc(playerDocRef, {
         role: role,
         faction: FACTIONS[role],
         status: "alive"
       });
     }
+    // await batch.commit(); // バッチを使う場合
 
+    // ルームのフェーズ更新
     await updateDoc(doc(db, "rooms", currentRoomId), {
       phase: "night"
     });
 
     showMessage("役職を割り当てました。ゲーム開始です（夜フェーズ）。");
   } catch (error) {
-    console.error("役職割り当てエラー:", error);
-    showMessage("役職の割り当てに失敗しました。");
+    console.error("役職割り当てエラーの詳細:", error); // エラーオブジェクトをログ出力
+    if (error.code === 'permission-denied') {
+        showMessage(`役職割り当てエラー: 権限がありません。ホストとしてルームを作成したか、UIDが一致しているか確認してください。詳細: ${error.message}`);
+    } else {
+        showMessage(`役職割り当てエラー: ${error.message || error}`);
+    }
   } finally {
     setLoading(assignRolesBtn, assignRolesLoading, false);
   }

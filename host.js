@@ -414,7 +414,9 @@ reenterRoomBtn.onclick = async () => {
 
 
 // 役職割り当て
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 assignRolesBtn.onclick = async () => {
+  // 事前条件の確認 (既存コードと同じ)
   if (!currentHostUid) {
     showMessage("この操作を行うにはホストとしてログインしてください。");
     return;
@@ -436,8 +438,7 @@ assignRolesBtn.onclick = async () => {
   showMessage("役職を割り当て中...");
 
   try {
-    
-    // ★追加するデバッグコードここから　-----------------------------------------------------------------------------------------
+    // --- デバッグコード: ルームのhostUidと現在のホストUIDの一致を再確認 ---
     console.log("--- 役職割り当て開始デバッグ ---");
     console.log("現在のルームID:", currentRoomId);
     console.log("現在のホストUID:", currentHostUid);
@@ -470,10 +471,10 @@ assignRolesBtn.onclick = async () => {
       setLoading(assignRolesBtn, assignRolesLoading, false);
       return; // 処理を中断
     }
-    console.log("--- デバッグ終了 ---");
-    // ★追加するデバッグコードここまで -----------------------------------------------------------------------------------------
+    console.log("--- デバッグ: hostUid確認完了 ---");
+    // --- デバッグコードここまで ---
 
-    
+
     const playersRef = collection(db, "rooms", currentRoomId, "players");
     const snapshot = await getDocs(playersRef);
     const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -491,28 +492,70 @@ assignRolesBtn.onclick = async () => {
     }
     rolesToAssign.sort(() => Math.random() - 0.5);
 
+    // --- デバッグコード: 各プレイヤーへの割り当てデータとFirestore書き込み ---
+    console.log("--- デバッグ: 各プレイヤーへの役職割り当て開始 ---");
     for (let i = 0; i < players.length; i++) {
       const playerId = players[i].id;
       const role = rolesToAssign[i];
-      await updateDoc(doc(db, "rooms", currentRoomId, "players", playerId), {
+      const faction = FACTIONS[role]; // FACTIONS[role] の結果を変数に格納
+
+      // ここで、役職と派閥が期待通りの値か、特に undefined になっていないかを確認
+      if (role === undefined || role === null || typeof role !== 'string' ||
+          faction === undefined || faction === null || typeof faction !== 'string') {
+          console.error(`デバッグエラー: プレイヤー ${playerId} に割り当てられる役職または派閥が不正です。`);
+          console.error(`Role: ${role}, Faction: ${faction}`);
+          showMessage("内部エラー: 役職データが不正です。");
+          setLoading(assignRolesBtn, assignRolesLoading, false);
+          return; // 処理を中断
+      }
+      
+      const updateData = {
         role: role,
-        faction: FACTIONS[role],
+        faction: faction,
         status: "alive"
-      });
+      };
+
+      console.log(`デバッグ: プレイヤーID: ${playerId}, 割り当てデータ:`, updateData);
+
+      try {
+        await updateDoc(doc(db, "rooms", currentRoomId, "players", playerId), updateData);
+        console.log(`デバッグ: プレイヤー ${playerId} の役職を更新しました。`);
+      } catch (innerError) {
+        console.error(`デバッグエラー: プレイヤー ${playerId} の役職更新中にパーミッションエラーが発生しました。`, innerError);
+        showMessage(`エラー: プレイヤー ${playerId} の役職割り当てに失敗しました。詳細をコンソールで確認してください。`);
+        setLoading(assignRolesBtn, assignRolesLoading, false);
+        return; // エラーが発生したら処理を中断
+      }
+    }
+    console.log("--- デバッグ: 各プレイヤーへの役職割り当て完了 ---");
+    // --- デバッグコードここまで ---
+
+    // ルームフェーズの更新 (既存コードと同じ)
+    try {
+        const roomPhaseUpdateData = { phase: "night" };
+        console.log("デバッグ: ルームフェーズを更新中:", roomPhaseUpdateData);
+        await updateDoc(doc(db, "rooms", currentRoomId), roomPhaseUpdateData);
+        console.log("デバッグ: ルームフェーズを更新しました。");
+    } catch (phaseUpdateError) {
+        console.error("デバッグエラー: ルームフェーズ更新中にパーミッションエラーが発生しました。", phaseUpdateError);
+        showMessage("エラー: ゲームフェーズの移行に失敗しました。詳細をコンソールで確認してください。");
+        setLoading(assignRolesBtn, assignRolesLoading, false);
+        return; // エラーが発生したら処理を中断
     }
 
-    await updateDoc(doc(db, "rooms", currentRoomId), {
-      phase: "night"
-    });
 
     showMessage("役職を割り当てました。ゲーム開始です（夜フェーズ）。");
   } catch (error) {
-    console.error("役職割り当てエラー:", error);
+    // ここは主に、Firestoreへの初回読み込み(getDocs)や、予期せぬエラーを捕捉
+    console.error("役職割り当て処理全体のエラー:", error);
     showMessage("役職の割り当てに失敗しました。");
   } finally {
     setLoading(assignRolesBtn, assignRolesLoading, false);
+    console.log("--- 役職割り当てデバッグ終了 ---");
   }
 };
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 // 昼フェーズ開始
 startDayBtn.onclick = async () => {

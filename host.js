@@ -14,6 +14,11 @@ const maxPlayersInput = document.getElementById('maxPlayers');
 const createRoomBtn = document.getElementById('createRoomBtn');
 const createRoomLoading = document.getElementById('createRoomLoading');
 
+// ★追加: ホスト再参加関連の要素
+const reenterRoomIdInput = document.getElementById('reenterRoomId');
+const reenterRoomBtn = document.getElementById('reenterRoomBtn');
+const reenterRoomLoading = document.getElementById('reenterRoomLoading');
+
 const roleSettingsDiv = document.getElementById('roleSettings');
 const currentPlayersCountSpan = document.getElementById('currentPlayersCount');
 const maxPlayersDisplaySpan = document.getElementById('maxPlayersDisplay');
@@ -29,6 +34,10 @@ const checkGameOverBtn = document.getElementById('checkGameOverBtn');
 const checkGameOverLoading = document.getElementById('checkGameOverLoading');
 const resetGameBtn = document.getElementById('resetGameBtn');
 const resetGameLoading = document.getElementById('resetGameLoading');
+
+// ★追加: ルーム削除ボタン
+const deleteRoomBtn = document.getElementById('deleteRoomBtn');
+const deleteRoomLoading = document.getElementById('deleteRoomLoading');
 
 const messageArea = document.getElementById('messageArea');
 
@@ -99,31 +108,45 @@ function updateRolesCount() {
 function updateButtonStates(roomData) {
   if (!currentHostUid) {
     createRoomBtn.disabled = true;
+    reenterRoomBtn.disabled = true; // ★追加
     assignRolesBtn.disabled = true;
     startDayBtn.disabled = true;
     countVotesBtn.disabled = true;
     checkGameOverBtn.disabled = true;
     resetGameBtn.disabled = true;
+    deleteRoomBtn.disabled = true; // ★追加
     roleSettingsDiv.style.display = 'none';
     maxPlayersInput.disabled = true;
+    roomIdInput.disabled = true; // ★追加
+    reenterRoomIdInput.disabled = true; // ★追加
     return;
   }
 
   if (!currentRoomId) {
     createRoomBtn.disabled = false;
+    reenterRoomBtn.disabled = false; // ★追加
     assignRolesBtn.disabled = true;
     startDayBtn.disabled = true;
     countVotesBtn.disabled = true;
     checkGameOverBtn.disabled = true;
     resetGameBtn.disabled = true;
+    deleteRoomBtn.disabled = true; // ★追加
     roleSettingsDiv.style.display = 'none';
     maxPlayersInput.disabled = false;
+    roomIdInput.disabled = false; // ★追加
+    reenterRoomIdInput.disabled = false; // ★追加
     return;
   }
 
+  // ルームにログイン中の場合
   createRoomBtn.disabled = true;
-  maxPlayersInput.disabled = true;
+  reenterRoomBtn.disabled = true; // ★追加
+  roomIdInput.disabled = true; // ★追加
+  maxPlayersInput.disabled = true; // ★追加
+  reenterRoomIdInput.disabled = true; // ★追加
+
   roleSettingsDiv.style.display = 'block';
+  deleteRoomBtn.disabled = false; // ★追加: ルームにログイン中は削除ボタンを有効化
 
   const phase = roomData ? roomData.phase : null;
   const gameOver = roomData ? roomData.gameOver : false;
@@ -211,7 +234,7 @@ function watchRoomState(roomId) {
     currentPlayersInRoom = snapshot.size;
     currentPlayersCountSpan.textContent = currentPlayersInRoom;
     updateRolesCount();
-    updateButtonStates(null);
+    updateButtonStates(null); // プレイヤー数変更でボタン状態も更新
   }, (error) => {
     console.error("プレイヤー数のリアルタイム更新エラー:", error);
   });
@@ -237,7 +260,7 @@ function setupAutoCloseTimer(roomId, createdAtTimestamp) {
     }, remainingTime);
 
     console.log(`ルーム「${roomId}」は残り約 ${Math.ceil(remainingTime / (60 * 1000))} 分で自動クローズします。`);
-    showMessage(`ルーム「${roomId}」は残り約 ${Math.ceil(remainingTime / (60 * 1000))} 分で自動クローズします。`);
+    // showMessage(`ルーム「${roomId}」は残り約 ${Math.ceil(remainingTime / (60 * 1000))} 分で自動クローズします。`); // このメッセージは邪魔になる可能性があるのでコメントアウト
 }
 
 // ★追加: 自動クローズタイマーをクリア
@@ -295,7 +318,7 @@ createRoomBtn.onclick = async () => {
     showMessage("ルームIDを入力してください。");
     return;
   }
-  if (isNaN(maxPlayers) || maxPlayers < 3) {
+  if (isNaN(maxPlayers) || maxPlayers < 1) {
     showMessage("最大人数は3以上の数字を入力してください。");
     return;
   }
@@ -346,8 +369,51 @@ createRoomBtn.onclick = async () => {
   }
 };
 
+// ★追加: ホストとしてルームに再参加
+reenterRoomBtn.onclick = async () => {
+    if (!currentHostUid) {
+        showMessage("ホストとしてログインしてください。");
+        return;
+    }
+    const roomIdToReenter = reenterRoomIdInput.value.trim();
+    if (!roomIdToReenter) {
+        showMessage("再参加するルームIDを入力してください。");
+        return;
+    }
+
+    setLoading(reenterRoomBtn, reenterRoomLoading, true);
+    showMessage("ルームに再参加中...");
+
+    try {
+        const roomRef = doc(db, "rooms", roomIdToReenter);
+        const roomSnap = await getDoc(roomRef);
+
+        if (!roomSnap.exists()) {
+            showMessage("指定されたルームは存在しません。");
+            return;
+        }
+
+        const roomData = roomSnap.data();
+        if (roomData.hostUid !== currentHostUid) {
+            showMessage("このルームのホストではありません。");
+            return;
+        }
+
+        currentRoomId = roomIdToReenter;
+        currentMaxPlayers = roomData.maxPlayers;
+        currentRolesConfig = roomData.rolesConfig || {};
+        showMessage(`ルーム「${currentRoomId}」にホストとして再参加しました。`);
+        watchRoomState(currentRoomId);
+    } catch (error) {
+        console.error("ルーム再参加エラー:", error);
+        showMessage("ルームへの再参加に失敗しました。");
+    } finally {
+        setLoading(reenterRoomBtn, reenterRoomLoading, false);
+    }
+};
+
+
 // 役職割り当て
-assignRolesBtn.onclick = async () => {
 assignRolesBtn.onclick = async () => {
   if (!currentHostUid) {
     showMessage("この操作を行うにはホストとしてログインしてください。");
@@ -387,35 +453,24 @@ assignRolesBtn.onclick = async () => {
     }
     rolesToAssign.sort(() => Math.random() - 0.5);
 
-    // バッチ書き込みを使用してアトミック性を高める (オプション)
-    // ただし、updateDoc が失敗している場合は、原因は権限にあるため、これは直接的な解決策ではない
-    // const batch = writeBatch(db); // writeBatchをインポートする必要がある
     for (let i = 0; i < players.length; i++) {
       const playerId = players[i].id;
       const role = rolesToAssign[i];
-      const playerDocRef = doc(db, "rooms", currentRoomId, "players", playerId);
-      // batch.update(playerDocRef, { // バッチを使う場合
-      await updateDoc(playerDocRef, {
+      await updateDoc(doc(db, "rooms", currentRoomId, "players", playerId), {
         role: role,
         faction: FACTIONS[role],
         status: "alive"
       });
     }
-    // await batch.commit(); // バッチを使う場合
 
-    // ルームのフェーズ更新
     await updateDoc(doc(db, "rooms", currentRoomId), {
       phase: "night"
     });
 
     showMessage("役職を割り当てました。ゲーム開始です（夜フェーズ）。");
   } catch (error) {
-    console.error("役職割り当てエラーの詳細:", error); // エラーオブジェクトをログ出力
-    if (error.code === 'permission-denied') {
-        showMessage(`役職割り当てエラー: 権限がありません。ホストとしてルームを作成したか、UIDが一致しているか確認してください。詳細: ${error.message}`);
-    } else {
-        showMessage(`役職割り当てエラー: ${error.message || error}`);
-    }
+    console.error("役職割り当てエラー:", error);
+    showMessage("役職の割り当てに失敗しました。");
   } finally {
     setLoading(assignRolesBtn, assignRolesLoading, false);
   }
@@ -670,6 +725,8 @@ checkGameOverBtn.onclick = async () => {
 async function resetGameAndDeleteRoom(roomId) {
     showMessage("ゲームをリセットし、ルームを削除しています...");
     try {
+        clearAutoCloseTimer(); // ★追加: 削除前にタイマーをクリア
+
         // プレイヤーデータを全て削除
         const playersRef = collection(db, "rooms", roomId, "players");
         const playersSnap = await getDocs(playersRef);
@@ -696,9 +753,11 @@ async function resetGameAndDeleteRoom(roomId) {
 
         showMessage("ゲームがリセットされ、ルームが完全に削除されました！");
         currentRoomId = null;
-        updateButtonStates(null);
+        updateButtonStates(null); // UIを初期状態に戻す
+        // ★UI初期化の追加
         roomIdInput.disabled = false;
         maxPlayersInput.disabled = false;
+        reenterRoomIdInput.disabled = false; // ★追加
         currentRolesConfig = {};
         ALL_ROLE_NAMES.forEach(role => {
             const input = document.getElementById(`role_${role}`);
@@ -725,9 +784,72 @@ resetGameBtn.onclick = async () => {
         showMessage("リセットするルームが指定されていません。");
         return;
     }
-    setLoading(resetGameBtn, resetGameLoading, true);
-    await resetGameAndDeleteRoom(currentRoomId); // 統合された関数を呼び出し
-    setLoading(resetGameBtn, resetGameLoading, false);
+    if (confirm("本当にゲームをリセットしてルームを初期状態に戻しますか？（プレイヤーデータは削除されません）")) {
+        setLoading(resetGameBtn, resetGameLoading, true);
+        // ルームデータは残し、プレイヤーのrole/faction/statusを初期化
+        try {
+            const playersRef = collection(db, "rooms", currentRoomId, "players");
+            const playersSnap = await getDocs(playersRef);
+            for (const playerDoc of playersSnap.docs) {
+                // ホスト以外のプレイヤーは role を null に、status を alive に戻す
+                if (playerDoc.id !== currentHostUid) {
+                    await updateDoc(playerDoc.ref, {
+                        role: null,
+                        faction: null,
+                        status: 'alive'
+                    });
+                }
+            }
+
+            // 投票データを全て削除
+            const votesRef = collection(db, "rooms", currentRoomId, "votes");
+            const votesSnap = await getDocs(votesRef);
+            for (const vote of votesSnap.docs) {
+                await deleteDoc(vote.ref);
+            }
+
+            // 夜のアクションデータを全て削除
+            const nightActionsRef = collection(db, "rooms", currentRoomId, "nightActions");
+            const nightActionsSnap = await getDocs(nightActionsRef);
+            for (const actionDoc of nightActionsSnap.docs) {
+                await deleteDoc(actionDoc.ref);
+            }
+
+            // ルームのフェーズ、ゲーム終了状態、パン屋の状態をリセット
+            await updateDoc(doc(db, "rooms", currentRoomId), {
+                phase: null,
+                gameOver: false,
+                winner: null,
+                executedPlayerRole: null,
+                bakerStatus: currentRolesConfig['パン屋'] > 0 ? 'alive' : 'none'
+            });
+
+            showMessage("ゲームをリセットしました。プレイヤーは再参加して役職を待機してください。");
+            updateButtonStates(null); // UIを初期状態に戻す
+        } catch (error) {
+            console.error("ゲームリセットエラー:", error);
+            showMessage("ゲームのリセットに失敗しました。");
+        } finally {
+            setLoading(resetGameBtn, resetGameLoading, false);
+        }
+    }
+};
+
+// ★追加: ルーム削除ボタンクリック
+deleteRoomBtn.onclick = async () => {
+    if (!currentHostUid) {
+        showMessage("この操作を行うにはホストとしてログインしてください。");
+        return;
+    }
+    if (!currentRoomId) {
+        showMessage("削除するルームが指定されていません。");
+        return;
+    }
+    if (confirm(`本当にルーム「${currentRoomId}」とその全てのデータを完全に削除しますか？この操作は元に戻せません！`)) {
+        setLoading(deleteRoomBtn, deleteRoomLoading, true);
+        await resetGameAndDeleteRoom(currentRoomId);
+        setLoading(deleteRoomBtn, deleteRoomLoading, false);
+    }
 };
 
 
@@ -745,13 +867,14 @@ document.addEventListener('DOMContentLoaded', () => {
           hostLoginStatusSpan.textContent = `ログイン中: 匿名ユーザー (UID: ${user.uid.substring(0, 8)}...)`;
       }
       showMessage("ホストとして自動ログインしました。");
-      const storedRoomId = roomIdInput.value.trim();
-      if (storedRoomId) {
-        currentRoomId = storedRoomId;
-        watchRoomState(storedRoomId);
-      } else {
-        updateButtonStates(null);
-      }
+      // ユーザーが手動でルームIDを入力して再参加できるよう、初期状態ではroomIdInputを空にする
+      // const storedRoomId = roomIdInput.value.trim();
+      // if (storedRoomId) {
+      //   currentRoomId = storedRoomId;
+      //   watchRoomState(storedRoomId);
+      // } else {
+      updateButtonStates(null);
+      // }
     } else {
       try {
         const userCredential = await signInAnonymously(auth);
@@ -767,15 +890,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (hostLoginStatusSpan) {
             hostLoginStatusSpan.textContent = "ログイン失敗";
         }
+        // 全てのボタンを無効化
         createRoomBtn.disabled = true;
+        reenterRoomBtn.disabled = true; // ★追加
         assignRolesBtn.disabled = true;
         startDayBtn.disabled = true;
         countVotesBtn.disabled = true;
         checkGameOverBtn.disabled = true;
         resetGameBtn.disabled = true;
+        deleteRoomBtn.disabled = true; // ★追加
         maxPlayersInput.disabled = true;
+        roomIdInput.disabled = true; // ★追加
+        reenterRoomIdInput.disabled = true; // ★追加
       }
     }
-    updateRolesCount();
+    updateRolesCount(); // 初期ロード時に役職合計を更新
   });
 });

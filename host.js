@@ -348,6 +348,7 @@ createRoomBtn.onclick = async () => {
 
 // 役職割り当て
 assignRolesBtn.onclick = async () => {
+  console.log("現在のホストUID:", currentHostUid);
   if (!currentHostUid) {
     showMessage("この操作を行うにはホストとしてログインしてください。");
     return;
